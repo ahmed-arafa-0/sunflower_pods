@@ -14,6 +14,7 @@ class BLEProvider extends ChangeNotifier {
   int _batteryCase = 0;
   int _rssi = -100;
   List<ScanResult> _scanResults = [];
+  List<ScanResult> _allScanResults = []; // Store ALL devices for debugging
   Timer? _rssiTimer;
   String _deviceModel = '';
   String _firmwareVersion = '';
@@ -27,6 +28,7 @@ class BLEProvider extends ChangeNotifier {
   int get batteryCase => _batteryCase;
   int get rssi => _rssi;
   List<ScanResult> get scanResults => _scanResults;
+  List<ScanResult> get allScanResults => _allScanResults; // For debugging
   String get deviceModel => _deviceModel;
   String get firmwareVersion => _firmwareVersion;
 
@@ -55,6 +57,7 @@ class BLEProvider extends ChangeNotifier {
   Future<void> startScan() async {
     _isScanning = true;
     _scanResults.clear();
+    _allScanResults.clear();
     notifyListeners();
 
     try {
@@ -62,6 +65,8 @@ class BLEProvider extends ChangeNotifier {
       if (FlutterBluePlus.isScanningNow) {
         await FlutterBluePlus.stopScan();
       }
+
+      debugPrint('🔍 Starting BLE scan...');
 
       // Start scan
       await FlutterBluePlus.startScan(
@@ -71,19 +76,41 @@ class BLEProvider extends ChangeNotifier {
 
       // Listen to scan results
       FlutterBluePlus.scanResults.listen((results) {
+        _allScanResults = results; // Store all devices
+
+        // Debug: Print ALL discovered devices
+        debugPrint('📱 Found ${results.length} total devices:');
+        for (var result in results) {
+          debugPrint(
+            '  - Name: "${result.device.platformName}" (${result.device.platformName.isEmpty ? "UNNAMED" : "NAMED"})',
+          );
+          debugPrint('    ID: ${result.device.remoteId}');
+          debugPrint('    RSSI: ${result.rssi} dBm');
+          debugPrint('    ---');
+        }
+
+        // Filter devices based on name patterns
         _scanResults = results.where((result) {
           final name = result.device.platformName.toLowerCase();
-          return BLEConstants.deviceNamePatterns.any(
+          final matchFound = BLEConstants.deviceNamePatterns.any(
             (pattern) => name.contains(pattern.toLowerCase()),
           );
+
+          if (matchFound) {
+            debugPrint('✅ MATCHED: ${result.device.platformName}');
+          }
+
+          return matchFound;
         }).toList();
+
+        debugPrint('🎯 Filtered to ${_scanResults.length} matching devices');
         notifyListeners();
       });
 
       // Wait for scan to complete
       await Future.delayed(const Duration(seconds: 15));
     } catch (e) {
-      debugPrint('Error scanning: $e');
+      debugPrint('❌ Error scanning: $e');
     }
 
     _isScanning = false;
@@ -104,6 +131,8 @@ class BLEProvider extends ChangeNotifier {
   // Connect to device
   Future<bool> connectToDevice(BluetoothDevice device) async {
     try {
+      debugPrint('🔗 Attempting to connect to: ${device.platformName}');
+
       // Disconnect from any existing device
       if (_connectedDevice != null) {
         await disconnect();
@@ -115,19 +144,35 @@ class BLEProvider extends ChangeNotifier {
         autoConnect: false,
       );
 
+      debugPrint('✅ Connected successfully!');
+
       _connectedDevice = device;
       _isConnected = true;
       notifyListeners();
 
       // Discover services
+      debugPrint('🔍 Discovering services...');
       _services = await device.discoverServices();
+      debugPrint('📋 Found ${_services?.length ?? 0} services');
+
+      // Debug: Print all services
+      for (var service in _services ?? []) {
+        debugPrint('  Service: ${service.uuid}');
+        for (var char in service.characteristics) {
+          debugPrint('    Characteristic: ${char.uuid}');
+          debugPrint(
+            '      Properties - Read: ${char.properties.read}, Notify: ${char.properties.notify}',
+          );
+        }
+      }
+
       await _readDeviceInfo();
       await _subscribeToBatteryUpdates();
       _startRssiMonitoring();
 
       return true;
     } catch (e) {
-      debugPrint('Error connecting: $e');
+      debugPrint('❌ Error connecting: $e');
       _isConnected = false;
       notifyListeners();
       return false;
@@ -149,9 +194,11 @@ class BLEProvider extends ChangeNotifier {
               if (characteristic.uuid.toString() ==
                   BLEConstants.modelNumberUUID) {
                 _deviceModel = stringValue;
+                debugPrint('📱 Model: $_deviceModel');
               } else if (characteristic.uuid.toString() ==
                   BLEConstants.firmwareRevisionUUID) {
                 _firmwareVersion = stringValue;
+                debugPrint('🔧 Firmware: $_firmwareVersion');
               }
             }
           } catch (e) {
@@ -169,11 +216,13 @@ class BLEProvider extends ChangeNotifier {
 
     for (var service in _services!) {
       if (service.uuid.toString() == BLEConstants.batteryServiceUUID) {
+        debugPrint('🔋 Found battery service!');
         for (var characteristic in service.characteristics) {
           try {
             // Read current value
             if (characteristic.properties.read) {
               final value = await characteristic.read();
+              debugPrint('🔋 Battery value: $value');
               if (value.isNotEmpty) {
                 _batteryCase = value[0];
 
@@ -181,10 +230,16 @@ class BLEProvider extends ChangeNotifier {
                 if (value.length >= 3) {
                   _batteryLeft = value[1];
                   _batteryRight = value[2];
+                  debugPrint(
+                    '🔋 L:$_batteryLeft% R:$_batteryRight% C:$_batteryCase%',
+                  );
                 } else {
                   // Simulate for demo
                   _batteryLeft = value[0] - 5;
                   _batteryRight = value[0] - 3;
+                  debugPrint(
+                    '🔋 Simulated - L:$_batteryLeft% R:$_batteryRight% C:$_batteryCase%',
+                  );
                 }
               }
             }
@@ -199,6 +254,9 @@ class BLEProvider extends ChangeNotifier {
                     _batteryLeft = value[1];
                     _batteryRight = value[2];
                   }
+                  debugPrint(
+                    '🔋 Battery updated - L:$_batteryLeft% R:$_batteryRight% C:$_batteryCase%',
+                  );
                   notifyListeners();
                 }
               });

@@ -17,6 +17,7 @@ class _ConnectionScreenState extends State<ConnectionScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   bool _isSearching = false;
+  bool _showAllDevices = false; // Toggle to show all devices
 
   @override
   void initState() {
@@ -87,6 +88,11 @@ class _ConnectionScreenState extends State<ConnectionScreen>
     final themeProvider = Provider.of<ThemeProvider>(context);
     final bleProvider = Provider.of<BLEProvider>(context);
 
+    // Use filtered or all devices based on toggle
+    final devicesToShow = _showAllDevices
+        ? bleProvider.allScanResults
+        : bleProvider.scanResults;
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -129,8 +135,37 @@ class _ConnectionScreenState extends State<ConnectionScreen>
                   textAlign: TextAlign.center,
                 ),
               ),
-              const SizedBox(height: 60),
-              if (!_isSearching && bleProvider.scanResults.isEmpty)
+              const SizedBox(height: 20),
+              // Debug toggle
+              if (bleProvider.allScanResults.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Show All Devices',
+                          style: TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                        Switch(
+                          value: _showAllDevices,
+                          onChanged: (value) {
+                            setState(() => _showAllDevices = value);
+                          },
+                          activeColor: Colors.white,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 20),
+              if (!_isSearching && devicesToShow.isEmpty)
                 ElevatedButton.icon(
                   onPressed: _startSearch,
                   icon: const Icon(Icons.bluetooth_searching),
@@ -152,8 +187,8 @@ class _ConnectionScreenState extends State<ConnectionScreen>
                 const CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
-              const SizedBox(height: 40),
-              if (bleProvider.scanResults.isNotEmpty)
+              const SizedBox(height: 20),
+              if (devicesToShow.isNotEmpty)
                 Expanded(
                   child: Container(
                     margin: const EdgeInsets.all(20),
@@ -165,19 +200,35 @@ class _ConnectionScreenState extends State<ConnectionScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${themeProvider.currentTheme.emoji} Devices Found',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${themeProvider.currentTheme.emoji} ${_showAllDevices ? "All" : "Matched"} Devices (${devicesToShow.length})',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (!_isSearching)
+                              IconButton(
+                                icon: const Icon(Icons.refresh),
+                                onPressed: _startSearch,
+                                tooltip: 'Refresh',
+                              ),
+                          ],
                         ),
                         const SizedBox(height: 15),
                         Expanded(
                           child: ListView.builder(
-                            itemCount: bleProvider.scanResults.length,
+                            itemCount: devicesToShow.length,
                             itemBuilder: (context, index) {
-                              final result = bleProvider.scanResults[index];
+                              final result = devicesToShow[index];
+                              final deviceName =
+                                  result.device.platformName.isNotEmpty
+                                  ? result.device.platformName
+                                  : 'Unknown Device';
+
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 10),
                                 shape: RoundedRectangleBorder(
@@ -190,19 +241,30 @@ class _ConnectionScreenState extends State<ConnectionScreen>
                                     color: Colors.blue,
                                   ),
                                   title: Text(
-                                    result.device.platformName.isNotEmpty
-                                        ? result.device.platformName
-                                        : 'Unknown Device',
+                                    deviceName,
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  subtitle: Text(
-                                    'Signal: ${result.rssi} dBm',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
+                                  subtitle: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Signal: ${result.rssi} dBm',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Text(
+                                        'ID: ${result.device.remoteId.toString().substring(0, 17)}...',
+                                        style: TextStyle(
+                                          color: Colors.grey[500],
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                   trailing: ElevatedButton(
                                     onPressed: () =>

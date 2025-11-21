@@ -55,5 +55,6 @@ class BLEConstants {
     'Funpods',
     'Jayroom',
     'Fun pods',
+    'Jayroom Funpods FN2',
   ];
 }
