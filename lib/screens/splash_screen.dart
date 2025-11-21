@@ -74,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
                       child: const Text(
-                        'Veuolla 💛',
+                        'Veuolla 🤍',
                         style: TextStyle(
                           fontSize: 60,
                           fontWeight: FontWeight.bold,

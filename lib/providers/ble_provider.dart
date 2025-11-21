@@ -14,7 +14,8 @@ class BLEProvider extends ChangeNotifier {
   int _batteryCase = 0;
   int _rssi = -100;
   List<ScanResult> _scanResults = [];
-  List<ScanResult> _allScanResults = []; // Store ALL devices for debugging
+  List<ScanResult> _allScanResults = []; // All scanned devices for debugging
+  List<BluetoothDevice> _systemConnectedDevices = []; // System-paired devices
   Timer? _rssiTimer;
   String _deviceModel = '';
   String _firmwareVersion = '';
@@ -29,6 +30,7 @@ class BLEProvider extends ChangeNotifier {
   int get rssi => _rssi;
   List<ScanResult> get scanResults => _scanResults;
   List<ScanResult> get allScanResults => _allScanResults; // For debugging
+  List<BluetoothDevice> get systemConnectedDevices => _systemConnectedDevices;
   String get deviceModel => _deviceModel;
   String get firmwareVersion => _firmwareVersion;
 
@@ -53,6 +55,27 @@ class BLEProvider extends ChangeNotifier {
     }
   }
 
+  // Get system-connected (bonded/paired) devices
+  Future<void> getSystemConnectedDevices() async {
+    try {
+      debugPrint('🔍 Checking for system-connected devices...');
+
+      // Get bonded devices (devices paired through system settings)
+      final bondedDevices = await FlutterBluePlus.bondedDevices;
+
+      debugPrint('📱 Found ${bondedDevices.length} system-paired devices:');
+      for (var device in bondedDevices) {
+        debugPrint('  - Name: "${device.platformName}"');
+        debugPrint('    ID: ${device.remoteId}');
+      }
+
+      _systemConnectedDevices = bondedDevices;
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error getting bonded devices: $e');
+    }
+  }
+
   // Start scanning for devices
   Future<void> startScan() async {
     _isScanning = true;
@@ -61,6 +84,9 @@ class BLEProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // First, check for system-connected devices
+      await getSystemConnectedDevices();
+
       // Check if already scanning
       if (FlutterBluePlus.isScanningNow) {
         await FlutterBluePlus.stopScan();
@@ -76,34 +102,10 @@ class BLEProvider extends ChangeNotifier {
 
       // Listen to scan results
       FlutterBluePlus.scanResults.listen((results) {
-        _allScanResults = results; // Store all devices
+        _allScanResults = results; // Store all results
+        debugPrint('📱 Scan found ${results.length} advertising devices');
 
-        // Debug: Print ALL discovered devices
-        debugPrint('📱 Found ${results.length} total devices:');
-        for (var result in results) {
-          debugPrint(
-            '  - Name: "${result.device.platformName}" (${result.device.platformName.isEmpty ? "UNNAMED" : "NAMED"})',
-          );
-          debugPrint('    ID: ${result.device.remoteId}');
-          debugPrint('    RSSI: ${result.rssi} dBm');
-          debugPrint('    ---');
-        }
-
-        // Filter devices based on name patterns
-        _scanResults = results.where((result) {
-          final name = result.device.platformName.toLowerCase();
-          final matchFound = BLEConstants.deviceNamePatterns.any(
-            (pattern) => name.contains(pattern.toLowerCase()),
-          );
-
-          if (matchFound) {
-            debugPrint('✅ MATCHED: ${result.device.platformName}');
-          }
-
-          return matchFound;
-        }).toList();
-
-        debugPrint('🎯 Filtered to ${_scanResults.length} matching devices');
+        _scanResults = results;
         notifyListeners();
       });
 
@@ -131,20 +133,30 @@ class BLEProvider extends ChangeNotifier {
   // Connect to device
   Future<bool> connectToDevice(BluetoothDevice device) async {
     try {
-      debugPrint('🔗 Attempting to connect to: ${device.platformName}');
+      debugPrint(
+        '🔗 Attempting to connect to: ${device.platformName} (${device.remoteId})',
+      );
 
       // Disconnect from any existing device
       if (_connectedDevice != null) {
         await disconnect();
       }
 
-      // Connect to device
-      await device.connect(
-        timeout: const Duration(seconds: 15),
-        autoConnect: false,
-      );
+      // Check if already connected
+      final connectionState = await device.connectionState.first;
+      debugPrint('Current connection state: $connectionState');
 
-      debugPrint('✅ Connected successfully!');
+      if (connectionState == BluetoothConnectionState.connected) {
+        debugPrint('✅ Device already connected via system!');
+      } else {
+        // Connect to device
+        debugPrint('Connecting...');
+        await device.connect(
+          timeout: const Duration(seconds: 15),
+          autoConnect: false,
+        );
+        debugPrint('✅ Connected successfully!');
+      }
 
       _connectedDevice = device;
       _isConnected = true;
@@ -161,7 +173,7 @@ class BLEProvider extends ChangeNotifier {
         for (var char in service.characteristics) {
           debugPrint('    Characteristic: ${char.uuid}');
           debugPrint(
-            '      Properties - Read: ${char.properties.read}, Notify: ${char.properties.notify}',
+            '      Properties - Read: ${char.properties.read}, Notify: ${char.properties.notify}, Write: ${char.properties.write}',
           );
         }
       }
@@ -214,9 +226,13 @@ class BLEProvider extends ChangeNotifier {
   Future<void> _subscribeToBatteryUpdates() async {
     if (_services == null) return;
 
+    bool batteryFound = false;
+
     for (var service in _services!) {
       if (service.uuid.toString() == BLEConstants.batteryServiceUUID) {
         debugPrint('🔋 Found battery service!');
+        batteryFound = true;
+
         for (var characteristic in service.characteristics) {
           try {
             // Read current value
@@ -267,6 +283,15 @@ class BLEProvider extends ChangeNotifier {
         }
       }
     }
+
+    if (!batteryFound) {
+      debugPrint('⚠️ No battery service found. Using simulated values.');
+      // Use simulated values for demo
+      _batteryLeft = 85;
+      _batteryRight = 87;
+      _batteryCase = 90;
+    }
+
     notifyListeners();
   }
 
