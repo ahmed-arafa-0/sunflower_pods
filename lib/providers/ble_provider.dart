@@ -54,66 +54,239 @@ class BLEProvider extends ChangeNotifier {
 
   // Monitor system-connected devices automatically
   void _startConnectionMonitoring() {
+    // Check immediately on start
+    Future.delayed(const Duration(milliseconds: 500), () {
+      checkSystemConnectedDevices();
+    });
+
+    // Then check every 3 seconds
     _checkConnectionTimer?.cancel();
-    _checkConnectionTimer = Timer.periodic(const Duration(seconds: 5), (
+    _checkConnectionTimer = Timer.periodic(const Duration(seconds: 3), (
       timer,
     ) async {
+      if (!_isConnected) {
+        debugPrint('⏰ Checking for Funpods... (${DateTime.now().second}s)');
+      }
       await checkSystemConnectedDevices();
     });
   }
 
-  // Check for system-connected Funpods
+  // Helper to check if device is Funpods
+  bool _isFunpodsDevice(BluetoothDevice device) {
+    final name = device.platformName.toLowerCase();
+    final isFunpods = BLEConstants.deviceNamePatterns.any(
+      (pattern) => name.contains(pattern.toLowerCase()),
+    );
+    return isFunpods;
+  }
+
+  // Check for system-connected Funpods (ENHANCED VERSION)
   Future<void> checkSystemConnectedDevices() async {
-    try {
-      // Get connected devices through system Bluetooth
-      final connectedDevices = FlutterBluePlus.connectedDevices;
-
-      // Check for Funpods in connected devices
-      for (var device in connectedDevices) {
-        final name = device.platformName.toLowerCase();
-        final isFunpods = BLEConstants.deviceNamePatterns.any(
-          (pattern) => name.contains(pattern.toLowerCase()),
-        );
-
-        if (isFunpods && !_isConnected) {
-          debugPrint(
-            '✅ Found system-connected Funpods: ${device.platformName}',
+    if (_isConnected) {
+      // Already connected, just verify it's still connected
+      if (_connectedDevice != null) {
+        try {
+          final state = await _connectedDevice!.connectionState.first.timeout(
+            const Duration(seconds: 2),
           );
-          await _connectToSystemDevice(device);
-          return;
+          if (state != BluetoothConnectionState.connected) {
+            debugPrint('⚠️ Device disconnected');
+            await disconnect();
+          }
+        } catch (e) {
+          debugPrint('⚠️ Lost connection: $e');
+          await disconnect();
         }
       }
+      return;
+    }
 
-      // If no Funpods found and we were connected, mark as disconnected
-      if (_isConnected && !connectedDevices.contains(_connectedDevice)) {
-        debugPrint('⚠️ Funpods disconnected');
-        await disconnect();
+    try {
+      debugPrint('🔍 Checking for system-connected devices...');
+
+      // METHOD 1: Check system devices (most reliable on some phones)
+      try {
+        final systemDevices = await FlutterBluePlus.systemDevices([]);
+        debugPrint('📱 System devices: ${systemDevices.length}');
+
+        for (var device in systemDevices) {
+          final name = device.platformName.isNotEmpty
+              ? device.platformName
+              : 'Unknown';
+          debugPrint('  System: "$name" (${device.remoteId})');
+
+          if (_isFunpodsDevice(device)) {
+            debugPrint('✅ Found Funpods in system devices!');
+            await _connectToSystemDevice(device);
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ System devices error: $e');
+      }
+
+      // METHOD 2: Check connected devices (most reliable on other phones)
+      try {
+        final connectedDevices = FlutterBluePlus.connectedDevices;
+        debugPrint('📱 Connected devices: ${connectedDevices.length}');
+
+        for (var device in connectedDevices) {
+          final name = device.platformName.isNotEmpty
+              ? device.platformName
+              : 'Unknown';
+          debugPrint('  Connected: "$name" (${device.remoteId})');
+
+          if (_isFunpodsDevice(device)) {
+            debugPrint('✅ Found Funpods in connected devices!');
+            await _connectToSystemDevice(device);
+            return;
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ Connected devices error: $e');
+      }
+
+      // METHOD 3: Check bonded devices (Android)
+      try {
+        final bondedDevices = await FlutterBluePlus.bondedDevices;
+        debugPrint('📱 Bonded/Paired devices: ${bondedDevices.length}');
+
+        for (var device in bondedDevices) {
+          final name = device.platformName.isNotEmpty
+              ? device.platformName
+              : 'Unknown';
+          debugPrint('  Bonded: "$name" (${device.remoteId})');
+
+          if (_isFunpodsDevice(device)) {
+            debugPrint('✅ Found Funpods in bonded devices!');
+            // Try to connect to the device
+            try {
+              final state = await device.connectionState.first.timeout(
+                const Duration(seconds: 2),
+              );
+              debugPrint('  Current connection state: $state');
+
+              if (state == BluetoothConnectionState.connected) {
+                debugPrint('✅ Device already connected! Proceeding...');
+                await _connectToSystemDevice(device);
+                return;
+              } else {
+                debugPrint(
+                  '⚠️ Device bonded but not connected, attempting to connect...',
+                );
+                // Try to connect it ourselves
+                try {
+                  await device.connect(timeout: const Duration(seconds: 10));
+                  debugPrint('✅ Successfully connected! Proceeding...');
+                  await _connectToSystemDevice(device);
+                  return;
+                } catch (connectError) {
+                  debugPrint('❌ Failed to connect: $connectError');
+                  debugPrint(
+                    '   Please connect the device in Bluetooth settings first',
+                  );
+                }
+              }
+            } catch (e) {
+              debugPrint('⚠️ Error checking/connecting: $e');
+              // Try connecting anyway
+              try {
+                debugPrint('  Attempting direct connection...');
+                await device.connect(timeout: const Duration(seconds: 10));
+                debugPrint('✅ Direct connection successful!');
+                await _connectToSystemDevice(device);
+                return;
+              } catch (directConnectError) {
+                debugPrint('❌ Direct connection failed: $directConnectError');
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ Bonded devices error: $e');
+      }
+
+      // If we got here, no Funpods found
+      if (!_isConnected) {
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('⚠️ No Funpods detected. Please ensure:');
+        debugPrint('   1. Funpods are turned on');
+        debugPrint('   2. Paired in phone Bluetooth settings');
+        debugPrint('   3. Currently CONNECTED (not just paired)');
+        debugPrint(
+          '   4. Device name contains: ${BLEConstants.deviceNamePatterns.join(", ")}',
+        );
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
     } catch (e) {
-      debugPrint('Error checking system devices: $e');
+      debugPrint('❌ Fatal error checking devices: $e');
     }
   }
 
   // Connect to system-paired device
   Future<void> _connectToSystemDevice(BluetoothDevice device) async {
     try {
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      debugPrint('🔗 Connecting to: ${device.platformName}');
+      debugPrint('   Device ID: ${device.remoteId}');
+
+      // Check current connection state first
+      final currentState = await device.connectionState.first
+          .timeout(const Duration(seconds: 2))
+          .catchError((e) {
+            debugPrint('⚠️ Could not get connection state: $e');
+            return BluetoothConnectionState.disconnected;
+          });
+
+      debugPrint('   Current state: $currentState');
+
+      // If not connected, try to connect
+      if (currentState != BluetoothConnectionState.connected) {
+        debugPrint('   Attempting connection...');
+        try {
+          await device.connect(
+            timeout: const Duration(seconds: 15),
+            autoConnect: false,
+          );
+          debugPrint('   ✅ Connection established!');
+        } catch (connectError) {
+          debugPrint('   ❌ Connection failed: $connectError');
+          // Try to continue anyway in case it's a false error
+        }
+      }
+
       _connectedDevice = device;
       _isConnected = true;
       notifyListeners();
 
       // Discover services
       debugPrint('🔍 Discovering services...');
-      _services = await device.discoverServices();
-      debugPrint('📋 Found ${_services?.length ?? 0} services');
+      try {
+        _services = await device.discoverServices().timeout(
+          const Duration(seconds: 15),
+        );
+        debugPrint('📋 Found ${_services?.length ?? 0} services');
+
+        // Debug: Print all services
+        for (var service in _services ?? []) {
+          debugPrint('  📦 Service: ${service.uuid}');
+        }
+      } catch (serviceError) {
+        debugPrint('❌ Service discovery failed: $serviceError');
+        // Continue anyway, we might still be connected
+      }
 
       await _readDeviceInfo();
       await _subscribeToBatteryUpdates();
       _startRssiMonitoring();
 
-      debugPrint('✅ Successfully connected to system device!');
+      debugPrint('✅ Successfully connected and initialized!');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     } catch (e) {
-      debugPrint('❌ Error connecting to system device: $e');
+      debugPrint('❌ Fatal error in _connectToSystemDevice: $e');
+      debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       _isConnected = false;
+      _connectedDevice = null;
       notifyListeners();
     }
   }
@@ -124,6 +297,7 @@ class BLEProvider extends ChangeNotifier {
 
     for (var service in _services!) {
       if (service.uuid.toString() == BLEConstants.deviceInfoServiceUUID) {
+        debugPrint('📱 Found Device Info service');
         for (var characteristic in service.characteristics) {
           try {
             if (characteristic.properties.read) {
@@ -133,15 +307,15 @@ class BLEProvider extends ChangeNotifier {
               if (characteristic.uuid.toString() ==
                   BLEConstants.modelNumberUUID) {
                 _deviceModel = stringValue;
-                debugPrint('📱 Model: $_deviceModel');
+                debugPrint('  Model: $_deviceModel');
               } else if (characteristic.uuid.toString() ==
                   BLEConstants.firmwareRevisionUUID) {
                 _firmwareVersion = stringValue;
-                debugPrint('🔧 Firmware: $_firmwareVersion');
+                debugPrint('  Firmware: $_firmwareVersion');
               }
             }
           } catch (e) {
-            debugPrint('Error reading characteristic: $e');
+            debugPrint('  Error reading characteristic: $e');
           }
         }
       }
@@ -157,19 +331,22 @@ class BLEProvider extends ChangeNotifier {
 
     for (var service in _services!) {
       if (service.uuid.toString() == BLEConstants.batteryServiceUUID) {
-        debugPrint('🔋 Found battery service!');
+        debugPrint('🔋 Found Battery service!');
         batteryFound = true;
 
         for (var characteristic in service.characteristics) {
           try {
+            debugPrint('  🔋 Characteristic: ${characteristic.uuid}');
+            debugPrint('     Read: ${characteristic.properties.read}');
+            debugPrint('     Notify: ${characteristic.properties.notify}');
+
             // Read current value
             if (characteristic.properties.read) {
               final value = await characteristic.read();
-              debugPrint('🔋 Raw battery data: $value');
+              debugPrint('  🔋 Raw data: $value (length: ${value.length})');
 
               if (value.isNotEmpty) {
-                // Parse battery data correctly
-                // Most TWS earbuds return: [Case, Left, Right] or just [Case]
+                // Parse battery data
                 _batteryCase = value[0];
 
                 if (value.length >= 3) {
@@ -179,13 +356,12 @@ class BLEProvider extends ChangeNotifier {
                   _batteryLeft = value[1];
                   _batteryRight = value[1];
                 } else {
-                  // If only case battery, set pods to same value
                   _batteryLeft = value[0];
                   _batteryRight = value[0];
                 }
 
                 debugPrint(
-                  '🔋 Battery - L:$_batteryLeft% R:$_batteryRight% C:$_batteryCase%',
+                  '  🔋 Parsed - L:$_batteryLeft% R:$_batteryRight% C:$_batteryCase%',
                 );
               }
             }
@@ -193,6 +369,8 @@ class BLEProvider extends ChangeNotifier {
             // Subscribe to notifications for real-time updates
             if (characteristic.properties.notify) {
               await characteristic.setNotifyValue(true);
+              debugPrint('  🔔 Subscribed to battery notifications');
+
               characteristic.lastValueStream.listen((value) {
                 if (value.isNotEmpty) {
                   _batteryCase = value[0];
@@ -207,14 +385,14 @@ class BLEProvider extends ChangeNotifier {
                     _batteryRight = value[0];
                   }
                   debugPrint(
-                    '🔋 Battery updated - L:$_batteryLeft% R:$_batteryRight% C:$_batteryCase%',
+                    '🔋 Battery update - L:$_batteryLeft% R:$_batteryRight% C:$_batteryCase%',
                   );
                   notifyListeners();
                 }
               });
             }
           } catch (e) {
-            debugPrint('Error subscribing to battery: $e');
+            debugPrint('  ⚠️ Error with battery characteristic: $e');
           }
         }
       }
@@ -222,7 +400,7 @@ class BLEProvider extends ChangeNotifier {
 
     if (!batteryFound) {
       debugPrint('⚠️ No standard battery service found');
-      // Try to find battery in other services
+      debugPrint('   Trying alternative services...');
       await _tryAlternativeBatteryReading();
     }
 
@@ -234,15 +412,16 @@ class BLEProvider extends ChangeNotifier {
     if (_services == null) return;
 
     for (var service in _services!) {
-      debugPrint('Checking service: ${service.uuid}');
       for (var characteristic in service.characteristics) {
         try {
           if (characteristic.properties.read) {
             final value = await characteristic.read();
             // Look for battery-like values (0-100 range)
-            if (value.isNotEmpty && value.every((b) => b >= 0 && b <= 100)) {
+            if (value.isNotEmpty &&
+                value.length <= 3 &&
+                value.every((b) => b >= 0 && b <= 100)) {
               debugPrint(
-                '🔋 Found potential battery data: $value in ${characteristic.uuid}',
+                '🔋 Potential battery in ${characteristic.uuid}: $value',
               );
               _batteryCase = value[0];
               if (value.length >= 3) {
@@ -257,13 +436,13 @@ class BLEProvider extends ChangeNotifier {
             }
           }
         } catch (e) {
-          // Ignore read errors for characteristics that can't be read
+          // Ignore errors for characteristics that can't be read
         }
       }
     }
-    debugPrint(
-      '⚠️ No battery data found - device may not expose battery info via BLE',
-    );
+
+    debugPrint('⚠️ No battery data found via BLE');
+    debugPrint('   Note: Some earbuds don\'t expose battery over BLE');
   }
 
   // Monitor RSSI (signal strength)
@@ -285,6 +464,7 @@ class BLEProvider extends ChangeNotifier {
 
   // Disconnect
   Future<void> disconnect() async {
+    debugPrint('🔌 Disconnecting...');
     _rssiTimer?.cancel();
 
     _connectedDevice = null;

@@ -115,6 +115,32 @@ class _HomeScreenState extends State<HomeScreen> {
                     localizations.translate('checking_connection'),
                     style: const TextStyle(fontSize: 16, color: Colors.white),
                   ),
+                  const SizedBox(height: 40),
+                  // Manual refresh button
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      bleProvider.checkSystemConnectedDevices();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Checking for connected Funpods...'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: themeProvider.currentTheme.accentColor,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 30,
+                        vertical: 15,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),

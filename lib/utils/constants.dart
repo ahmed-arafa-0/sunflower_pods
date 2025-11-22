@@ -9,7 +9,7 @@ class AppColors {
 
 class AppStrings {
   // Welcome Messages
-  static const welcomeTitle = 'Veuolla 💛';
+  static const welcomeTitle = 'Veuolla 💜';
   static const welcomeSubtitle = 'Your Sunflower Pods';
 
   // Connection Messages
@@ -19,7 +19,7 @@ class AppStrings {
 
   // Greetings
   static const List<String> greetings = [
-    'Hello Sunshine ☀️',
+    'Hello Veuolla ☀️',
     'Your sunshine is connected, Veuolla! 🌻',
     'Ready to bloom with you today!',
     'The sea misses your rhythm, Veuolla 🌊',
@@ -34,7 +34,7 @@ class AppStrings {
   static const lowBatteryViolet = 'Violet dreams need more energy 💜';
   static const lowBatterySea = 'The sea is getting calm... battery low';
 
-  // Find Messages
+  // Find Messages (removed feature but keeping for compatibility)
   static const findHot = '🔥 Hot! Very Close!';
   static const findWarm = '🌡️ Warm... Getting closer';
   static const findCold = '❄️ Cold... Keep searching';
@@ -50,11 +50,12 @@ class BLEConstants {
   static const modelNumberUUID = '00002a24-0000-1000-8000-00805f9b34fb';
   static const firmwareRevisionUUID = '00002a26-0000-1000-8000-00805f9b34fb';
 
-  // Device Name Patterns
+  // Device Name Patterns - Updated with Joyroom
   static const List<String> deviceNamePatterns = [
     'Funpods',
     'Jayroom',
+    'Joyroom', // Added this
     'Fun pods',
-    'Jayroom Funpods FN2',
+    'FN2', // Added this for your specific model
   ];
 }
