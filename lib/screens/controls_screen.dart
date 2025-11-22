@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class ControlsScreen extends StatelessWidget {
   const ControlsScreen({Key? key}) : super(key: key);
@@ -8,6 +9,7 @@ class ControlsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final localizations = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -38,9 +40,9 @@ class ControlsScreen extends StatelessWidget {
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
-                      'Touch Controls',
-                      style: TextStyle(
+                    Text(
+                      localizations.touchControls,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -55,36 +57,36 @@ class ControlsScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   children: [
                     _buildControlCard(
-                      title: 'Sunflower Tap 🌻',
-                      description: 'Single tap',
-                      action: 'Play / Pause music',
+                      title: localizations.translate('sunflower_tap'),
+                      description: localizations.translate('single_tap'),
+                      action: localizations.translate('play_pause'),
                       gradient: const LinearGradient(
                         colors: [Color(0xFFFFEB3B), Color(0xFFFF9800)],
                       ),
                     ),
                     const SizedBox(height: 15),
                     _buildControlCard(
-                      title: 'Mango Double 🥭',
-                      description: 'Double tap',
-                      action: 'Next track',
+                      title: localizations.translate('mango_double'),
+                      description: localizations.translate('double_tap'),
+                      action: localizations.translate('next_track'),
                       gradient: const LinearGradient(
                         colors: [Color(0xFFFF9800), Color(0xFFEC407A)],
                       ),
                     ),
                     const SizedBox(height: 15),
                     _buildControlCard(
-                      title: 'Violet Trio 💜',
-                      description: 'Triple tap',
-                      action: 'Previous track',
+                      title: localizations.translate('violet_trio'),
+                      description: localizations.translate('triple_tap'),
+                      action: localizations.translate('previous_track'),
                       gradient: const LinearGradient(
                         colors: [Color(0xFFAB47BC), Color(0xFFEC407A)],
                       ),
                     ),
                     const SizedBox(height: 15),
                     _buildControlCard(
-                      title: 'Sea Wave Hold 🌊',
-                      description: 'Long press',
-                      action: 'Voice assistant',
+                      title: localizations.translate('sea_wave_hold'),
+                      description: localizations.translate('long_press'),
+                      action: localizations.translate('voice_assistant'),
                       gradient: const LinearGradient(
                         colors: [Color(0xFF42A5F5), Color(0xFF26C6DA)],
                       ),
@@ -158,7 +160,3 @@ class ControlsScreen extends StatelessWidget {
     );
   }
 }
-
-// ============================================================================
-// 17. lib/screens/eq_screen.dart
-// ============================================================================

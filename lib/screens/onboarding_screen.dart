@@ -1,15 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/theme_provider.dart';
 import '../models/app_theme.dart';
-import 'connection_screen.dart';
+import '../l10n/app_localizations.dart';
+import 'home_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({Key? key}) : super(key: key);
 
+  Future<void> _completeOnboarding(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_onboarding', false);
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const HomeScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final localizations = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -24,9 +37,9 @@ class OnboardingScreen extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              const Text(
-                'Choose Your Vibe',
-                style: TextStyle(
+              Text(
+                localizations.translate('choose_vibe'),
+                style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF424242),
@@ -80,7 +93,7 @@ class OnboardingScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             Text(
-                              themeEntry.value.name,
+                              localizations.translate(themeEntry.key),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
@@ -103,25 +116,22 @@ class OnboardingScreen extends StatelessWidget {
                     _buildPermissionCard(
                       icon: Icons.bluetooth,
                       color: Colors.blue,
-                      title: 'Bluetooth Permission',
-                      description:
-                          'We need this to connect to your Funpods and make magic happen!',
+                      title: localizations.translate('bluetooth_permission'),
+                      description: localizations.translate('bluetooth_desc'),
                     ),
                     const SizedBox(height: 15),
                     _buildPermissionCard(
                       icon: Icons.location_on,
                       color: Colors.green,
-                      title: 'Location Permission',
-                      description:
-                          'Required on Android for Bluetooth scanning. Don\'t worry, we keep your privacy safe!',
+                      title: localizations.translate('location_permission'),
+                      description: localizations.translate('location_desc'),
                     ),
                     const SizedBox(height: 15),
                     _buildPermissionCard(
                       icon: Icons.notifications,
                       color: Colors.orange,
-                      title: 'Notifications',
-                      description:
-                          'Get notified when your pods connect or need charging!',
+                      title: localizations.translate('notification_permission'),
+                      description: localizations.translate('notification_desc'),
                     ),
                   ],
                 ),
@@ -142,14 +152,7 @@ class OnboardingScreen extends StatelessWidget {
                     ],
                   ),
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ConnectionScreen(),
-                        ),
-                      );
-                    },
+                    onPressed: () => _completeOnboarding(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
@@ -158,9 +161,9 @@ class OnboardingScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(30),
                       ),
                     ),
-                    child: const Text(
-                      'Continue',
-                      style: TextStyle(
+                    child: Text(
+                      localizations.continueBtn,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,

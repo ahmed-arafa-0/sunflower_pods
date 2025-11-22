@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/ble_provider.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class DeviceInfoScreen extends StatelessWidget {
   const DeviceInfoScreen({Key? key}) : super(key: key);
@@ -11,6 +12,7 @@ class DeviceInfoScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final bleProvider = Provider.of<BLEProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final localizations = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -41,9 +43,9 @@ class DeviceInfoScreen extends StatelessWidget {
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
-                      'Device Information',
-                      style: TextStyle(
+                    Text(
+                      localizations.deviceInfo,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -58,38 +60,38 @@ class DeviceInfoScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   children: [
                     _buildInfoCard(
-                      'Device Name',
+                      localizations.translate('device_name'),
                       bleProvider.connectedDevice?.platformName ?? 'Unknown',
                       Icons.headset,
                     ),
                     _buildInfoCard(
-                      'Device ID',
+                      localizations.translate('device_id'),
                       bleProvider.connectedDevice?.remoteId.toString() ?? 'N/A',
                       Icons.fingerprint,
                     ),
                     _buildInfoCard(
-                      'Model',
+                      localizations.translate('model'),
                       bleProvider.deviceModel.isEmpty
                           ? 'Jayroom Funpods 2'
                           : bleProvider.deviceModel,
                       Icons.phone_android,
                     ),
                     _buildInfoCard(
-                      'Firmware',
+                      localizations.translate('firmware'),
                       bleProvider.firmwareVersion.isEmpty
                           ? 'Unknown'
                           : bleProvider.firmwareVersion,
                       Icons.system_update,
                     ),
                     _buildInfoCard(
-                      'Connection Status',
+                      localizations.translate('connection_status'),
                       bleProvider.isConnected
-                          ? 'Connected ✅'
-                          : 'Disconnected ❌',
+                          ? '${localizations.connected} ✅'
+                          : '${localizations.disconnected} ❌',
                       Icons.bluetooth_connected,
                     ),
                     _buildInfoCard(
-                      'Signal Strength',
+                      localizations.translate('signal_strength'),
                       '${bleProvider.rssi} dBm (${bleProvider.getSignalStrength()})',
                       Icons.signal_cellular_alt,
                     ),
@@ -108,13 +110,15 @@ Batteries: L:${bleProvider.batteryLeft}% R:${bleProvider.batteryRight}% C:${bleP
 
                         Clipboard.setData(ClipboardData(text: info));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Device info copied to clipboard!'),
+                          SnackBar(
+                            content: Text(
+                              localizations.translate('info_copied'),
+                            ),
                           ),
                         );
                       },
                       icon: const Icon(Icons.copy),
-                      label: const Text('Copy Device Info'),
+                      label: Text(localizations.translate('copy_device_info')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: themeProvider.currentTheme.accentColor,
                         foregroundColor: Colors.white,

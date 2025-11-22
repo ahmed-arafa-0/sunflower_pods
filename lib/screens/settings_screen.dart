@@ -1,18 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/theme_provider.dart';
 import '../providers/notification_provider.dart';
-import '../providers/ble_provider.dart';
+import '../providers/language_provider.dart';
+import '../l10n/app_localizations.dart';
 import '../models/app_theme.dart';
+import 'onboarding_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({Key? key}) : super(key: key);
+
+  Future<void> _resetOnboarding(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_onboarding', true);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          AppLocalizations.of(context).translate('onboarding_reset'),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final notificationProvider = Provider.of<NotificationProvider>(context);
-    final bleProvider = Provider.of<BLEProvider>(context);
+    final languageProvider = Provider.of<LanguageProvider>(context);
+    final localizations = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -43,9 +60,9 @@ class SettingsScreen extends StatelessWidget {
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
-                      'Settings',
-                      style: TextStyle(
+                    Text(
+                      localizations.settings,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -59,15 +76,17 @@ class SettingsScreen extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
-                    // Theme Selection
-                    const Text(
-                      'Personalization',
-                      style: TextStyle(
+                    // Personalization
+                    Text(
+                      localizations.personalization,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 15),
+
+                    // Theme Selection
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -84,9 +103,9 @@ class SettingsScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Theme',
-                            style: TextStyle(
+                          Text(
+                            localizations.theme,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
@@ -126,53 +145,103 @@ class SettingsScreen extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(height: 15),
+
+                    // Language Selection
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 10,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            localizations.language,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 15),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildLanguageOption(
+                                  context,
+                                  'English',
+                                  '🇬🇧',
+                                  'en',
+                                  languageProvider.currentLocale.languageCode ==
+                                      'en',
+                                  languageProvider,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: _buildLanguageOption(
+                                  context,
+                                  'Italiano',
+                                  '🇮🇹',
+                                  'it',
+                                  languageProvider.currentLocale.languageCode ==
+                                      'it',
+                                  languageProvider,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
                     const SizedBox(height: 30),
+
                     // Notifications
-                    const Text(
-                      'Notifications',
-                      style: TextStyle(
+                    Text(
+                      localizations.notifications,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 15),
                     _buildSwitchTile(
-                      'Enable Notifications',
+                      localizations.translate('enable_notifications'),
                       notificationProvider.notificationsEnabled,
                       (value) =>
                           notificationProvider.toggleNotifications(value),
                     ),
                     _buildSwitchTile(
-                      'Low Battery Alerts',
+                      localizations.translate('low_battery_alerts'),
                       notificationProvider.lowBatteryAlerts,
                       (value) =>
                           notificationProvider.toggleLowBatteryAlerts(value),
                     ),
                     _buildSwitchTile(
-                      'Connection Alerts',
+                      localizations.translate('connection_alerts'),
                       notificationProvider.connectionAlerts,
                       (value) =>
                           notificationProvider.toggleConnectionAlerts(value),
                     ),
+
                     const SizedBox(height: 30),
-                    // Device Actions
-                    const Text(
-                      'Device',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 15),
+
+                    // Reset Onboarding
                     ElevatedButton.icon(
-                      onPressed: () async {
-                        await bleProvider.disconnect();
-                        Navigator.popUntil(context, (route) => route.isFirst);
-                      },
-                      icon: const Icon(Icons.bluetooth_disabled),
-                      label: const Text('Disconnect Device'),
+                      onPressed: () => _resetOnboarding(context),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(localizations.translate('reset_onboarding')),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
+                        backgroundColor: themeProvider.currentTheme.accentColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(
@@ -180,11 +249,13 @@ class SettingsScreen extends StatelessWidget {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 30),
+
                     // About
-                    const Text(
-                      'About',
-                      style: TextStyle(
+                    Text(
+                      localizations.about,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -206,7 +277,7 @@ class SettingsScreen extends StatelessWidget {
                       child: Column(
                         children: [
                           const Text(
-                            '💛 Sunflower Pods 💛',
+                            '💜 Dr. Veuolla\'s Pods 💜',
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -214,21 +285,30 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
-                            'Made with love for Veuolla',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          Text(
+                            localizations.translate('made_with_love'),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey,
+                            ),
                           ),
                           const SizedBox(height: 10),
-                          const Text(
-                            'Version 1.0.0',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          Text(
+                            localizations.translate('version'),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
                           ),
                           const SizedBox(height: 15),
                           const Divider(),
                           const SizedBox(height: 15),
-                          const Text(
-                            'A personalized app for your Jayroom Funpods 2',
-                            style: TextStyle(fontSize: 14, color: Colors.grey),
+                          Text(
+                            localizations.translate('personalized_app'),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 10),
@@ -240,11 +320,7 @@ class SettingsScreen extends StatelessWidget {
                                 style: const TextStyle(fontSize: 20),
                               ),
                               const SizedBox(width: 5),
-                              const Icon(
-                                Icons.favorite,
-                                color: Colors.pink,
-                                size: 20,
-                              ),
+                              const Text('💜', style: TextStyle(fontSize: 20)),
                               const SizedBox(width: 5),
                               Text(
                                 themeProvider.currentTheme.emoji,
@@ -260,6 +336,46 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLanguageOption(
+    BuildContext context,
+    String name,
+    String flag,
+    String code,
+    bool isSelected,
+    LanguageProvider provider,
+  ) {
+    return GestureDetector(
+      onTap: () => provider.setLanguage(code),
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          gradient: isSelected
+              ? const LinearGradient(
+                  colors: [Color(0xFFAB47BC), Color(0xFFEC407A)],
+                )
+              : null,
+          color: isSelected ? null : Colors.grey[200],
+          borderRadius: BorderRadius.circular(15),
+          border: isSelected ? Border.all(color: Colors.white, width: 2) : null,
+        ),
+        child: Column(
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 30)),
+            const SizedBox(height: 8),
+            Text(
+              name,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? Colors.white : Colors.black87,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -283,9 +399,11 @@ class SettingsScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
           ),
           Switch(value: value, onChanged: onChanged, activeColor: Colors.green),
         ],

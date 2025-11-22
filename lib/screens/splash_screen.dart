@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/theme_provider.dart';
 import 'onboarding_screen.dart';
+import 'home_screen.dart';
 import 'dart:math';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  final bool showOnboarding;
+
+  const SplashScreen({Key? key, required this.showOnboarding})
+    : super(key: key);
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -22,6 +27,31 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+
+    // Auto-navigate after 2 seconds
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        _navigate();
+      }
+    });
+  }
+
+  Future<void> _navigate() async {
+    if (widget.showOnboarding) {
+      // Mark onboarding as shown
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('show_onboarding', false);
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    }
   }
 
   @override
@@ -74,7 +104,7 @@ class _SplashScreenState extends State<SplashScreen>
                         ),
                       ),
                       child: const Text(
-                        'Veuolla 🤍',
+                        'Veuolla 💜',
                         style: TextStyle(
                           fontSize: 60,
                           fontWeight: FontWeight.bold,
@@ -92,36 +122,6 @@ class _SplashScreenState extends State<SplashScreen>
                     Text(
                       themeProvider.currentTheme.emoji,
                       style: const TextStyle(fontSize: 100),
-                    ),
-                    const SizedBox(height: 60),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const OnboardingScreen(),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.grey[800],
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 40,
-                          vertical: 20,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        elevation: 8,
-                      ),
-                      child: const Text(
-                        "Let's connect your Funpods",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
                     ),
                   ],
                 ),

@@ -3,12 +3,13 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/ble_provider.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 import '../utils/constants.dart';
-import 'find_screen.dart';
 import 'controls_screen.dart';
 import 'eq_screen.dart';
 import 'device_info_screen.dart';
 import 'settings_screen.dart';
+import 'cleaning_tips_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -21,12 +22,109 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Check for connected devices on launch
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<BLEProvider>(
+        context,
+        listen: false,
+      ).checkSystemConnectedDevices();
+    });
+  }
+
+  void _onNavigationTap(int index) {
+    if (index == _selectedIndex) return;
+
+    setState(() => _selectedIndex = index);
+
+    if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const EQScreen()),
+      ).then((_) => setState(() => _selectedIndex = 0));
+    } else if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+      ).then((_) => setState(() => _selectedIndex = 0));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bleProvider = Provider.of<BLEProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final localizations = AppLocalizations.of(context);
     final now = DateTime.now();
     final formattedDate = DateFormat('EEEE, MMMM d, y').format(now);
 
+    // Show disconnected state if not connected
+    if (!bleProvider.isConnected) {
+      return Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: themeProvider.currentTheme.primaryGradient,
+          ),
+          child: SafeArea(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    themeProvider.currentTheme.emoji,
+                    style: const TextStyle(fontSize: 120),
+                  ),
+                  const SizedBox(height: 40),
+                  Text(
+                    localizations.yourSunshineAway,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      localizations.podsDisconnected,
+                      style: const TextStyle(fontSize: 18, color: Colors.white),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: Text(
+                      localizations.connectFirst,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    localizations.translate('checking_connection'),
+                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        bottomNavigationBar: _buildBottomNavBar(localizations, themeProvider),
+      );
+    }
+
+    // Normal connected state
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -63,9 +161,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Hello Sunshine ☀️',
-                            style: TextStyle(
+                          Text(
+                            localizations.helloVeuolla,
+                            style: const TextStyle(
                               fontSize: 28,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
@@ -88,11 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: Colors.white,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.favorite,
-                        color: Colors.pink,
-                        size: 24,
-                      ),
+                      child: const Text('💜', style: TextStyle(fontSize: 24)),
                     ),
                   ],
                 ),
@@ -166,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const Icon(Icons.wifi, color: Colors.white, size: 18),
                           const SizedBox(width: 8),
                           Text(
-                            '${bleProvider.getSignalStrength()} Signal',
+                            '${bleProvider.getSignalStrength()} ${localizations.signal}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -186,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Expanded(
                       child: _buildBatteryCard(
-                        'Left',
+                        localizations.left,
                         bleProvider.batteryLeft,
                         Icons.headset,
                       ),
@@ -194,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildBatteryCard(
-                        'Right',
+                        localizations.right,
                         bleProvider.batteryRight,
                         Icons.headset,
                       ),
@@ -202,7 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: _buildBatteryCard(
-                        'Case',
+                        localizations.case_,
                         bleProvider.batteryCase,
                         Icons.cases_rounded,
                       ),
@@ -222,19 +316,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       _buildActionCard(
                         context,
-                        'Find My Pods',
-                        Icons.location_on,
-                        themeProvider.currentTheme.primaryGradient,
-                        () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const FindScreen()),
-                        ),
-                      ),
-                      _buildActionCard(
-                        context,
-                        'Controls',
+                        localizations.touchControls,
                         Icons.touch_app,
-                        themeProvider.currentTheme.secondaryGradient,
+                        themeProvider.currentTheme.primaryGradient,
                         () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -244,11 +328,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       _buildActionCard(
                         context,
-                        'Sound EQ',
+                        localizations.soundProfiles,
                         Icons.graphic_eq,
-                        const LinearGradient(
-                          colors: [Color(0xFFEC407A), Color(0xFFAB47BC)],
-                        ),
+                        themeProvider.currentTheme.secondaryGradient,
                         () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const EQScreen()),
@@ -256,7 +338,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       _buildActionCard(
                         context,
-                        'Device Info',
+                        localizations.cleaningTips,
+                        Icons.cleaning_services,
+                        const LinearGradient(
+                          colors: [Color(0xFFEC407A), Color(0xFFAB47BC)],
+                        ),
+                        () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CleaningTipsScreen(),
+                          ),
+                        ),
+                      ),
+                      _buildActionCard(
+                        context,
+                        localizations.deviceInfo,
                         Icons.info_outline,
                         const LinearGradient(
                           colors: [Color(0xFF757575), Color(0xFF424242)],
@@ -276,56 +372,47 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() => _selectedIndex = index);
-            if (index == 1) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const FindScreen()),
-              );
-            } else if (index == 2) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const EQScreen()),
-              );
-            } else if (index == 3) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-            }
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: themeProvider.currentTheme.accentColor,
-          unselectedItemColor: Colors.grey,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.location_on),
-              label: 'Find',
-            ),
-            BottomNavigationBarItem(icon: Icon(Icons.equalizer), label: 'EQ'),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.settings),
-              label: 'Settings',
-            ),
-          ],
-        ),
+      bottomNavigationBar: _buildBottomNavBar(localizations, themeProvider),
+    );
+  }
+
+  Widget _buildBottomNavBar(
+    AppLocalizations localizations,
+    ThemeProvider themeProvider,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: _onNavigationTap,
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        selectedItemColor: themeProvider.currentTheme.accentColor,
+        unselectedItemColor: Colors.grey,
+        items: [
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.home),
+            label: localizations.home,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.equalizer),
+            label: localizations.eq,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.settings),
+            label: localizations.settings,
+          ),
+        ],
       ),
     );
   }
@@ -457,14 +544,19 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Icon(icon, color: Colors.white, size: 40),
             const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../l10n/app_localizations.dart';
 
 class CleaningTipsScreen extends StatelessWidget {
   const CleaningTipsScreen({Key? key}) : super(key: key);
@@ -8,34 +9,32 @@ class CleaningTipsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final localizations = AppLocalizations.of(context);
 
     final tips = [
       {
-        'title': 'Give your sunflowers some love 💛',
-        'description':
-            'Gently wipe earbuds with a soft, dry cloth after each use.',
+        'title': localizations.translate('tip1_title'),
+        'description': localizations.translate('tip1_desc'),
         'icon': Icons.cleaning_services,
       },
       {
-        'title': 'Keep those mango vibes crystal clear 🥭',
-        'description': 'Use a cotton swab to clean the mesh screens carefully.',
+        'title': localizations.translate('tip2_title'),
+        'description': localizations.translate('tip2_desc'),
         'icon': Icons.sanitizer,
       },
       {
-        'title': 'Protect your violet dreams 💜',
-        'description':
-            'Avoid water and cleaning solutions directly on the earbuds.',
+        'title': localizations.translate('tip3_title'),
+        'description': localizations.translate('tip3_desc'),
         'icon': Icons.water_drop_outlined,
       },
       {
-        'title': 'Clear sea, clear sound 🌊',
-        'description': 'Clean the charging case regularly with a soft brush.',
+        'title': localizations.translate('tip4_title'),
+        'description': localizations.translate('tip4_desc'),
         'icon': Icons.brush,
       },
       {
-        'title': 'Store with care 🌻',
-        'description':
-            'Always keep your Funpods in their case when not in use.',
+        'title': localizations.translate('tip5_title'),
+        'description': localizations.translate('tip5_desc'),
         'icon': Icons.cases_rounded,
       },
     ];
@@ -69,9 +68,9 @@ class CleaningTipsScreen extends StatelessWidget {
                       icon: const Icon(Icons.arrow_back, color: Colors.white),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
-                      'Cleaning & Care Tips',
-                      style: TextStyle(
+                    Text(
+                      localizations.cleaningTips,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
